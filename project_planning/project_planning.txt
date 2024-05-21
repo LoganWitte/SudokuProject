@@ -1,0 +1,12 @@
+Pages:
+    Landing page
+    About page
+    Login/Signup page
+    Daily Challenge
+    Tournaments
+    
+Database:
+    uid (from clerk)
+    current puzzle & undo history
+    daily challenge state & puzzle info
+    medals (tournament placements)
