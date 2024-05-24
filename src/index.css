@@ -84,8 +84,8 @@
     display: grid;
     grid-template-columns: repeat(9, 1fr);
     grid-template-rows: repeat(9, 1fr);
-    width: 450px;
-    height: 450px;
+    width: 500px;
+    height: 500px;
 
     border-top: 2px solid black;
     border-left: 2px solid black;
@@ -125,9 +125,44 @@
 }
 
 .selectedCell {
-    background: rgb(150, 150, 150);
+    background: rgb(150, 150, 150) !important;
+}
+
+.sameNumberCell {
+    background: rgb(175, 175, 175);
 }
 
 .highlightedCell {
     background: rgb(200, 200, 200);
+}
+
+.nonStaticCell {
+    color: rgb(41, 175, 85);
+}
+
+.errorCell {
+    background: rgb(255, 211, 211);
+}
+
+.errorCell.nonStaticCell {
+    color: red;
+    background: rgb(255, 167, 167);
+}
+
+.noteGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    height: 100%;
+    width: 100%;
+}
+
+.noteGridItem {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1;
+    user-select: none;
+    font-size: 12px;
+    color: black;
 }
