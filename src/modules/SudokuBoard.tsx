@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
 export default function SudokuBoard() {
+
     const [selectedCell, setSelectedCell] = useState<number | null>(null);
     const [selectedRow, setSelectedRow] = useState<number | null>(null);
     const [selectedColumn, setSelectedColumn] = useState<number | null>(null);
@@ -12,46 +13,26 @@ export default function SudokuBoard() {
     const [staticCells, setStaticCells] = useState(Array.from({ length: 9 }, () => Array(9).fill(false)));
     const [cellNotes, setCellNotes] = useState(Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => false))));
     const [noteMode, setNoteMode] = useState(false);
+    const [difficulty, setDifficulty] = useState<number | null>(1);
+    const [timerString, setTimerString] = useState<String | null>("00:00");
+    const [timeSeconds, setTimeSeconds] = useState(0);
+    const [timeMinutes, setTimeMinutes] = useState(0);
+    const [timeHours, setTimeHours] = useState(0);
+    const [mistakes, setMistakes] = useState<number>(0);
+    const [timerPaused, setTimerPaused] = useState(false);
 
-    function checkBoard() {
-        let newErrorCells = Array.from({ length: 9 }, () => Array(9).fill(false));
-        for(let i = 0; i < 9; i++) {
-            for(let j = 0; j < 9; j++) {
-                let currentCellValue = cellValues[i][j];
-                if(currentCellValue !== '0' && currentCellValue !== correctCellValues[i][j]) {
-                    newErrorCells[i][j] = true;
-                    //Checks column
-                    for(let k = 0; k < 9; k++) {
-                        if(cellValues[i][k] === currentCellValue) {
-                            newErrorCells[i][k] = true;
-                        }
-                    }
-                    //Checks row
-                    for(let k = 0; k < 9; k++) {
-                        if(cellValues[k][j] === currentCellValue) {
-                            newErrorCells[k][j] = true;
-                        }
-                    }
-                    //Checks box
-                    const boxStartRow = Math.floor(i / 3) * 3;
-                    const boxStartCol = Math.floor(j / 3) * 3;
-                    for (let m = boxStartRow; m < boxStartRow + 3; m++) {
-                        for (let n = boxStartCol; n < boxStartCol + 3; n++) {
-                            if ((m !== i || n !== j) && cellValues[m][n] === currentCellValue) {
-                                newErrorCells[m][n] = true;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        setErrorCells(newErrorCells);
-    }
+    
 
-    function updateCellValue(row: number, column: number, value: string) {
+    function updateCellValue(row: number, column: number, value: String) {
+        //Skips if cell is unchangeable
         if(staticCells[row][column]) {
             return;
         }
+        //If user inputs same num as cell then it pretends user clicked 0 (erased)
+        if(cellValues[row][column] === value) {
+            value = '0';
+        }
+        //If user inputs 0 then it erases notes (so that it doesnt do it twice, on input and erasure)
         if(value === '0') {
             const newCellNotes = [...cellNotes];
             newCellNotes[row] = [...newCellNotes[row]];
@@ -59,12 +40,16 @@ export default function SudokuBoard() {
             newCellNotes[row][column] = Array(9).fill(false);
             setCellNotes(newCellNotes);
         }
-        
-
+        //Sets cell value to new value
         const newValues = [...cellValues];
         newValues[row] = [...newValues[row]];
         newValues[row][column] = value;
         setCellValues(newValues);
+
+        //If cell is set to incorrect value (and operation is not erasure) then it increments mistake counter
+        if(value !== '0' && correctCellValues[row][column] !== value) {
+            setMistakes(mistakes + 1);
+        }
     }
 
     function toggleNoteValue(row: number, column: number, value: number) {
@@ -84,8 +69,42 @@ export default function SudokuBoard() {
     }
 
     useEffect(() => {
+        function checkBoard() {
+            let newErrorCells = Array.from({ length: 9 }, () => Array(9).fill(false));
+            for(let i = 0; i < 9; i++) {
+                for(let j = 0; j < 9; j++) {
+                    let currentCellValue = cellValues[i][j];
+                    if(currentCellValue !== '0' && currentCellValue !== correctCellValues[i][j]) {
+                        newErrorCells[i][j] = true;
+                        //Checks column
+                        for(let k = 0; k < 9; k++) {
+                            if(cellValues[i][k] === currentCellValue) {
+                                newErrorCells[i][k] = true;
+                            }
+                        }
+                        //Checks row
+                        for(let k = 0; k < 9; k++) {
+                            if(cellValues[k][j] === currentCellValue) {
+                                newErrorCells[k][j] = true;
+                            }
+                        }
+                        //Checks box
+                        const boxStartRow = Math.floor(i / 3) * 3;
+                        const boxStartCol = Math.floor(j / 3) * 3;
+                        for (let m = boxStartRow; m < boxStartRow + 3; m++) {
+                            for (let n = boxStartCol; n < boxStartCol + 3; n++) {
+                                if ((m !== i || n !== j) && cellValues[m][n] === currentCellValue) {
+                                    newErrorCells[m][n] = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            setErrorCells(newErrorCells);
+        }
         checkBoard();
-    }, [cellValues])
+    }, [cellValues, correctCellValues]);
     
 
     function clickCell(index: number, column: number, row: number, box: number) {
@@ -149,8 +168,6 @@ export default function SudokuBoard() {
         }
         return <div className="grid">{gridItems}</div>;
     }
-    
-    
 
     useEffect(() => {
         function generateBoard() {
@@ -175,18 +192,22 @@ export default function SudokuBoard() {
         generateBoard();
     },[]);
 
+    function numberInput(option: String) {
+        if(selectedCell !== null && option >= '0' && option <= '9') {
+            const row = Math.floor(selectedCell / 9);
+            const column = selectedCell % 9;
+            if(noteMode === true) {
+                toggleNoteValue(column, row, Number(option));
+            }
+            else {
+                updateCellValue(row, column, option);
+            }
+        }
+    }
+
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
-            if(selectedCell !== null && event.key >= '0' && event.key <= '9') {
-                const row = Math.floor(selectedCell / 9);
-                const column = selectedCell % 9;
-                if(noteMode === true) {
-                    toggleNoteValue(column, row, Number(event.key));
-                }
-                else {
-                    updateCellValue(row, column, event.key);
-                }
-            }
+            numberInput(event.key);
         }
         window.addEventListener('keydown', handleKeyDown);
         return () => {
@@ -198,10 +219,85 @@ export default function SudokuBoard() {
         setNoteMode(!noteMode);
     }
 
+    //Timer
+    useEffect(() => {
+        let timeS = timeSeconds;
+        let timeM = timeMinutes;
+        let timeH = timeHours;
+        const interval = setInterval(() => {
+            if(!timerPaused) {
+                timeS ++;
+                if(timeSeconds > 59) {
+                    timeS = 0;
+                    timeM ++;
+                }
+                if(timeMinutes > 59) {
+                    timeM = 0;
+                    timeH ++;
+                }
+                setTimerString(`${timeH > 0 ? String(timeH)+':' : ''}${timeM > 9 ? String(timeM) : '0'+String(timeM)}:${timeS > 9 ? String(timeS) : '0'+String(timeS)}`);
+                setTimeSeconds(timeS);
+                setTimeMinutes(timeM);
+                setTimeHours(timeH);
+            }
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [timerPaused, timeSeconds, timeMinutes, timeHours]);
+    
+    
+    
+
     return (
         <div className="gameContainer">
-            {renderGridItems()}
-            <button onClick={toggleNoteMode}>{!noteMode ? 'Enable Notes' : 'Disable Notes'}</button>
+            <div>
+                <div className="difficultySelector">
+                    <div style={{paddingTop: '0.5em', fontWeight: 'bold'}}>Difficulty:</div>
+                    <div className={`difficultyOption ${difficulty === 1 && 'selected'}`} onClick={() => setDifficulty(1)}>Easy</div>
+                    <div className={`difficultyOption ${difficulty === 2 && 'selected'}`} onClick={() => setDifficulty(2)}>Medium</div>
+                    <div className={`difficultyOption ${difficulty === 3 && 'selected'}`} onClick={() => setDifficulty(3)}>Hard</div>
+                    <div className={`difficultyOption ${difficulty === 4 && 'selected'}`} onClick={() => setDifficulty(4)}>Expert</div>
+                </div>
+                {renderGridItems()}
+            </div>
+            
+            <div className="gameButtons">
+                <div className="gameInfo">
+                    <div className="infoDiv">Mistakes: <span style={{fontWeight: 'bold', marginLeft: '0.5em'}}>{String(mistakes)}/3</span></div>
+                    <div className="infoDiv">
+                        {timerString}
+                        <div className="timerPauseButton" onClick={() => setTimerPaused(!timerPaused)}>
+                            {timerPaused ? 
+                                <i className="pauseIcon fa fa-play" style={{width: '16px', height: '16px'}} />
+                                :
+                                <i className="pauseIcon fa fa-pause" style={{width: '16px', height: '16px'}} />
+                            }
+                        </div>
+                        
+                    </div>
+                </div>
+                <div className="buttonContainer">
+                    <button className="gameButton"><i className="fa fa-undo" /></button>
+                    <button className="gameButton" onClick={() => numberInput("0")}><i className="fa fa-eraser" /></button>
+                    <button className="gameButton" onClick={toggleNoteMode} style={{border: noteMode ? '2px solid black' : 'none'}}><i className="fa fa-pencil" /></button>
+                    <div className="gameButtonLabel">Undo</div>
+                    <div className="gameButtonLabel">Erase</div>
+                    <div className="gameButtonLabel">Notes</div>
+
+                    <button className="numberButton" onClick={() => numberInput("1")}>1</button>
+                    <button className="numberButton" onClick={() => numberInput("2")}>2</button>
+                    <button className="numberButton" onClick={() => numberInput("3")}>3</button>
+                    <button className="numberButton" onClick={() => numberInput("4")}>4</button>
+                    <button className="numberButton" onClick={() => numberInput("5")}>5</button>
+                    <button className="numberButton" onClick={() => numberInput("6")}>6</button>
+                    <button className="numberButton" onClick={() => numberInput("7")}>7</button>
+                    <button className="numberButton" onClick={() => numberInput("8")}>8</button>
+                    <button className="numberButton" onClick={() => numberInput("9")}>9</button>
+
+                    <button className="newGameButton">New Game</button>
+                </div>
+            </div>
+            
+            {/*<button onClick={toggleNoteMode}>{!noteMode ? 'Enable Notes' : 'Disable Notes'}</button>*/}
         </div>
         
     );
