@@ -52,6 +52,15 @@ export default function SudokuBoard() {
         if(staticCells[row][column]) {
             return;
         }
+        if(value === '0') {
+            const newCellNotes = [...cellNotes];
+            newCellNotes[row] = [...newCellNotes[row]];
+            newCellNotes[row][column] = [...newCellNotes[row][column]];
+            newCellNotes[row][column] = Array(9).fill(false);
+            setCellNotes(newCellNotes);
+        }
+        
+
         const newValues = [...cellValues];
         newValues[row] = [...newValues[row]];
         newValues[row][column] = value;
@@ -62,7 +71,6 @@ export default function SudokuBoard() {
         if(staticCells[column][row]) {
             return;
         }
-        console.log(1);
         const newCellNotes = [...cellNotes];
         newCellNotes[column] = [...newCellNotes[column]];
         newCellNotes[column][row] = [...newCellNotes[column][row]];
