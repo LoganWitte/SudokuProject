@@ -1,16 +1,21 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import LandingPage from "./pages/LandingPage";
 import ErrorPage from "./pages/ErrorPage";
+import { SharedDataType } from './SharedData';
 
-export default function Routing() {
-    return(
+interface RoutingProps {
+    sharedData: SharedDataType;
+}
+
+const Routing: React.FC<RoutingProps> = ({ sharedData }) => {
+    return (
         <div>
-            <Router>
-                <Routes>
-                    <Route path="/" element={<LandingPage />} />
-                    <Route path="*" element={<ErrorPage />} />
-                </Routes>
-            </Router>
+            <Routes>
+                <Route path="/" element={<LandingPage sharedData = {sharedData}/>} />
+                <Route path="*" element={<ErrorPage sharedData = {sharedData}/>} />
+            </Routes>
         </div>
     )
 }
+
+export default Routing;

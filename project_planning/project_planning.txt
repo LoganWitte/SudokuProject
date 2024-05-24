@@ -1,12 +1,36 @@
 Pages:
     Landing page
+    How to play page
     About page
     Login/Signup page
-    Daily Challenge
-    Tournaments
+    Daily Challenge page
+    Tournaments page
+    Settings page
+    timetout feature - save game if afk
     
-Database:
+Database (Turso):
     uid (from clerk)
     current puzzle & undo history
     daily challenge state & puzzle info
     medals (tournament placements)
+
+Features:
+    Dynamic puzzle generation depending on difficulty (no stored puzzles)
+    Save puzzle progress & undo history on last puzzle and daily puzzle
+    Adjustable color themes (custom ones with rgb selector maybe?)
+
+    Note taking:
+        Press shift or click button to turn on - user can select whether it should be toggle or hold
+        Change cursor whether in note or writing mode
+
+    Undo history (ctrl+z):
+        types of operations:
+            alter number - store position, old value (0-9), new value (0-9)
+                ex: numChange(30,5,6) = position 25 replace 5 with 6
+            alter note - store position, type of note (0-9) to toggle
+                ex: noteChange(36, 4) = position 36 toggle the note 4
+
+        past operations array (pastOperations) - stores previous operations
+
+        on alter operation place at end of pastOperations
+        on undo operation perform inverse of end of pastOperations and remove from pastOperations
