@@ -105,10 +105,6 @@
     font-weight: 300;
 }
 
-.gridItem:hover {
-    cursor: default;
-}
-
 .gridItem:nth-child(27n),
 .gridItem:nth-child(27n-1),
 .gridItem:nth-child(27n-2),
