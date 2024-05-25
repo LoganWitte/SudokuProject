@@ -117,6 +117,10 @@ export default function SudokuBoard() {
         if (noteMode) {
             let newNotes;
             if(option === 0) {
+                //Changes nothing if notes are already empty
+                if(!selectedCell.getNotes().includes(true)) {
+                    return;
+                }
                 newNotes = Array(9).fill(false);
             }
             else {
@@ -127,10 +131,13 @@ export default function SudokuBoard() {
             updateCell(action);
             let newUndoHistory = undoHistory;
             newUndoHistory[newUndoHistory.length] = action;
-            console.log(newUndoHistory);
             setUndoHistory(undoHistory);
         }
         else {
+            //Changes nothing if cell is empty and input is 0
+            if(option === 0 && selectedCell.getValue() === 0) {
+                return;
+            }
             if (option === selectedCell.getValue()) {
                 option = 0;
             }
