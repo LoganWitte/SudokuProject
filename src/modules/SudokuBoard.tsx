@@ -138,7 +138,6 @@ export default function SudokuBoard() {
     // Handles number/note input
     // Rewrite later - code looks super confusing. Could be better by having a seperate section for when user clicks '0'
     function clickNumber(option: number) {
-        console.log(1);
         //If no cell is selected or selected cell is static then changes nothing
         if (!selectedCell || selectedCell.getIsStatic()) {
             return;
@@ -146,13 +145,10 @@ export default function SudokuBoard() {
         let row = selectedCell.getRow();
         let col = selectedCell.getColumn();
         if (noteMode) {
-            console.log(2);
             let newNotes;
             if(option === 0) {
-                console.log(3);
                 //Changes nothing if notes are already empty
                 if(!selectedCell.getNotes().includes(true)) {
-                    console.log(4);
                     return;
                 }
                 newNotes = Array(9).fill(false);
@@ -226,6 +222,7 @@ export default function SudokuBoard() {
 
     // Generates board
     useEffect(() => {
+        console.log(1); //Live test to see if it only runs twice locally
         generateBoard();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -288,9 +285,7 @@ export default function SudokuBoard() {
 
     // Checks for errors in a given cell and updates its related cells' error status
     function checkError(cell: cell): boolean {
-        console.log("\nChecking: " + cell.toString());
         if(!cells) {
-            console.log("Big big trouble");
             return true;
         }
         const val = cell.getValue();
@@ -309,7 +304,6 @@ export default function SudokuBoard() {
             if(i !== col) {
                 currentCell = cells[row][i];
                 if(currentCell.getValue() === val) {
-                    console.log("1: Flagged " + currentCell.toString());
                     currentCell.setIsError(true);
                     foundError = true;
                 }
@@ -321,7 +315,6 @@ export default function SudokuBoard() {
             if(i !== row) {
                 currentCell = cells[i][col];
                 if(currentCell.getValue() === val) {
-                    console.log("2: Flagged " + currentCell.toString());
                     currentCell.setIsError(true);
                     foundError = true;
                 }
@@ -336,7 +329,6 @@ export default function SudokuBoard() {
                 if(((startRow + i) !== row) && ((startCol + j) !== col)) {
                     currentCell = cells[startRow + i][startCol + j];
                     if(currentCell.getValue() === val) {
-                        console.log("3: Flagged " + currentCell.toString());
                         currentCell.setIsError(true);
                         foundError = true;
                     }
