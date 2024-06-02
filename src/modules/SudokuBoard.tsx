@@ -222,7 +222,6 @@ export default function SudokuBoard() {
 
     // Generates board
     useEffect(() => {
-        console.log(1); //Live test to see if it only runs twice locally
         generateBoard();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
