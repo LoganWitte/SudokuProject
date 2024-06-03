@@ -1,6 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { createBoard } from '../scripts/boardGenerator';
 
+/*
+TODO:
+rewrite:
+    updateCell
+    checkError
+    Mapping seems efficient now but errors seem to be with setting mistakes properly. Need to look into how to do this efficiently.
+*/
+
 // Contains data for each individual sudoku cell
 class cell {
     value: number = -1;
@@ -12,17 +20,7 @@ class cell {
     isStatic: boolean = false;
     isError: boolean | null = null;
 
-    getValue() { return this.value }
-    setValue(value: number) { this.value = value }
-    getNotes() { return this.notes }
-    setNotes(notes: boolean[]) { this.notes = notes }
-    getIndex() { return this.index }
-    getColumn() { return this.column }
-    getRow() { return this.row }
-    getBox() { return this.box }
-    getIsStatic() { return this.isStatic }
-    getIsError() { return this.isError }
-    setIsError(isError: boolean) {this.isError = isError}
+    getNote(n: number) {return this.notes[n]}
 
     constructor(value: number, notes: boolean[], index: number) {
         this.value = value;
@@ -48,13 +46,6 @@ class cellAction {
     newValue: number;
     oldNotes: boolean[];
     newNotes: boolean[];
-
-    getRow() { return this.row }
-    getColumn() { return this.column }
-    getOldValue() { return this.oldValue }
-    getNewValue() { return this.newValue }
-    getOldNotes() { return this.oldNotes }
-    getNewNotes() { return this.newNotes }
 
     reverse() {
         [this.oldValue, this.newValue, this.oldNotes, this.newNotes] = [this.newValue, this.oldValue, this.newNotes, this.oldNotes]
@@ -94,27 +85,26 @@ export default function SudokuBoard() {
     const [timeHours, setTimeHours] = useState<number>(0);
     const [mistakes, setMistakes] = useState<number>(0);
     const [timerPaused, setTimerPaused] = useState<boolean>(false);
-    const [gridElements, setGridElements] = useState<JSX.Element[]>([]);
     const [undoHistory, setUndoHistory] = useState<cellAction[]>([]);
     const [progress, setProgress] = useState<boolean>(false);
 
+    //REDO
     // Updates the board depending on a given cellAction
-    function updateCell(action: cellAction, undo: boolean) {
-        if (!cells) {
-            return;
-        }
+    function updateCell(action: cellAction, undo: boolean = false) {
+
+        if (!cells || !correctValues || !cells) return null;
+
         setProgress(true);
-        const row = action.getRow();
-        const col = action.getColumn();
-        const newValue = action.getNewValue()
+        const row = action.row;
+        const col = action.column;
+        const newValue = action.newValue;
         let newCells = cells.map(subArray => subArray.slice());
         let cellToUpdate = newCells[row][col];
-        cellToUpdate.setValue(newValue);
-        cellToUpdate.setNotes(action.getNewNotes());
+        cellToUpdate.value = newValue;
+        cellToUpdate.notes = action.newNotes;
 
         // Checks for mistakes (not if undoing)
-        if(!correctValues || !cells) return;
-        cells[row][col].setIsError(checkError(cellToUpdate));
+        cells[row][col].isError = checkError(cellToUpdate);
         if(newValue !== 0 && correctValues[row][col] !== newValue && !undo) {
             setMistakes(mistakes + 1);
         }
@@ -139,40 +129,40 @@ export default function SudokuBoard() {
     // Rewrite later - code looks super confusing. Could be better by having a seperate section for when user clicks '0'
     function clickNumber(option: number) {
         //If no cell is selected or selected cell is static then changes nothing
-        if (!selectedCell || selectedCell.getIsStatic()) {
+        if (!selectedCell || selectedCell.isStatic) {
             return;
         }
-        let row = selectedCell.getRow();
-        let col = selectedCell.getColumn();
+        let row = selectedCell.row;
+        let col = selectedCell.column;
         if (noteMode) {
             let newNotes;
             if(option === 0) {
                 //Changes nothing if notes are already empty
-                if(!selectedCell.getNotes().includes(true)) {
+                if(!selectedCell.notes.includes(true)) {
                     return;
                 }
                 newNotes = Array(9).fill(false);
             }
             else {
-                newNotes = [...selectedCell.getNotes()];
+                newNotes = [...selectedCell.notes];
                 newNotes[option - 1] = !newNotes[option - 1];
             }
-            let action = new cellAction(row, col, selectedCell.getValue(), 0, selectedCell.getNotes(), newNotes);
-            updateCell(action, false);
+            let action = new cellAction(row, col, selectedCell.value, 0, selectedCell.notes, newNotes);
+            updateCell(action);
             let newUndoHistory = undoHistory;
             newUndoHistory[newUndoHistory.length] = action;
             setUndoHistory(undoHistory);
         }
         else {
             //Changes nothing if cell/notes are empty and input is 0
-            if(option === 0 && selectedCell.getValue() === 0 && !selectedCell.getNotes().includes(true)) {
+            if(option === 0 && selectedCell.value === 0 && !selectedCell.notes.includes(true)) {
                 return;
             }
-            if (option === selectedCell.getValue()) {
+            if (option === selectedCell.value) {
                 option = 0;
             }
-            let action = new cellAction(row, col, selectedCell.getValue(), option, selectedCell.getNotes(), Array(9).fill(false));
-            updateCell(action, false);
+            let action = new cellAction(row, col, selectedCell.value, option, selectedCell.notes, Array(9).fill(false));
+            updateCell(action);
             let newUndoHistory = undoHistory;
             newUndoHistory[newUndoHistory.length] = action;
             setUndoHistory(undoHistory);
@@ -282,18 +272,16 @@ export default function SudokuBoard() {
         }
     }
 
+    //REDO
     // Checks for errors in a given cell and updates its related cells' error status
     function checkError(cell: cell): boolean {
         if(!cells) {
             return true;
         }
-        const val = cell.getValue();
-        if(val === 0 || cell.getIsStatic()) {
-            return false;
-        }
-        const row = cell.getRow();
-        const col = cell.getColumn();
-        const box = cell.getBox();
+        const val: number = cell.value;
+        const row = cell.row;
+        const col = cell.column;
+        const box = cell.box;
         const startRow = Math.floor(box / 3) * 3;
         const startCol = (box % 3) * 3;
         let currentCell: cell;
@@ -302,23 +290,23 @@ export default function SudokuBoard() {
             //Checks columns
             if(i !== col) {
                 currentCell = cells[row][i];
-                if(currentCell.getValue() === val) {
-                    currentCell.setIsError(true);
+                if(val !== 0 && currentCell.value === val) {
+                    currentCell.isError = true;
                     foundError = true;
                 }
                 else {
-                    currentCell.setIsError(false);
+                    currentCell.isError = false;
                 }
             }
             //Checks rows
             if(i !== row) {
                 currentCell = cells[i][col];
-                if(currentCell.getValue() === val) {
-                    currentCell.setIsError(true);
+                if(val !== 0 && currentCell.value === val) {
+                    currentCell.isError = true;
                     foundError = true;
                 }
                 else {
-                    currentCell.setIsError(false);
+                    currentCell.isError = false;
                 }
             }
         }
@@ -327,67 +315,18 @@ export default function SudokuBoard() {
             for(let j = 0; j < 3; j++) {
                 if(((startRow + i) !== row) && ((startCol + j) !== col)) {
                     currentCell = cells[startRow + i][startCol + j];
-                    if(currentCell.getValue() === val) {
-                        currentCell.setIsError(true);
+                    if(val !== 0 && currentCell.value === val) {
+                        currentCell.isError = true;
                         foundError = true;
                     }
                     else {
-                        currentCell.setIsError(false);
+                        currentCell.isError = false;
                     }
                 }
             }
         }
         return foundError;
     }
-
-    // Renders the sudoku board
-    function renderGridItems() {
-        if (!cells) {
-            return;
-        }
-        let elements = [];
-        for (let i = 0; i < 9; i++) {
-            for (let j = 0; j < 9; j++) {
-                let currentCell = cells[i][j];
-                let cellNotes = currentCell.getNotes();
-                elements.push(
-                    <div
-                        className={`${'gridItem' +
-                            (selectedCell?.getIndex() === currentCell.getIndex() ? ' selectedCell' : '') +
-                            ((currentCell.getValue() !== 0 && selectedCell?.getValue() === currentCell.getValue()) ? ' sameNumberCell' : '') +
-                            ((selectedCell?.getRow() === currentCell.getRow() || selectedCell?.getColumn() === currentCell.getColumn() || selectedCell?.getBox() === currentCell.getBox()) ? ' highlightedCell' : '') +
-                            (!currentCell.getIsStatic() ? ' nonStaticCell' : '') +
-                            (currentCell.getIsError() ? ' errorCell' : '')}`
-                        }
-                        onClick={() => selectCell(currentCell)}
-                        key={currentCell.getIndex()}
-                    >
-                        {(currentCell.getValue() === 0 ? 
-                        <div className="noteGrid"> 
-                            <div className="noteGridItem">{cellNotes[0] && '1'}</div>
-                            <div className="noteGridItem">{cellNotes[1] && '2'}</div>
-                            <div className="noteGridItem">{cellNotes[2] && '3'}</div>
-                            <div className="noteGridItem">{cellNotes[3] && '4'}</div>
-                            <div className="noteGridItem">{cellNotes[4] && '5'}</div>
-                            <div className="noteGridItem">{cellNotes[5] && '6'}</div>
-                            <div className="noteGridItem">{cellNotes[6] && '7'}</div>
-                            <div className="noteGridItem">{cellNotes[7] && '8'}</div>
-                            <div className="noteGridItem">{cellNotes[8] && '9'}</div>
-                        </div>
-                        :
-                        currentCell.getValue())}
-                    </div>
-                )
-            }
-        }
-        setGridElements(elements);
-    }
-
-    // Re-renders board when neccesary
-    useEffect(() => {
-        renderGridItems();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [cells, selectedCell]);
 
     // HTML stuff
     return (
@@ -402,7 +341,38 @@ export default function SudokuBoard() {
                     <div className={`difficultyOption ${difficulty === missingCells.expert && 'selected'}`} onClick={() => resetBoard(missingCells.expert)}>Expert</div>
                     <div className={`difficultyOption ${difficulty === missingCells.extreme && 'selected'}`} onClick={() => resetBoard(missingCells.extreme)}>Extreme</div>
                 </div>
-                <div className="grid">{gridElements}</div>
+                
+                <div className="grid"> {
+                    cells?.map((row) => row.map((cell) => 
+                        <div
+                        className={`${'gridItem' +
+                            (selectedCell?.index === cell.index ? ' selectedCell' : '') +
+                            ((cell.value !== 0 && selectedCell?.value === cell.value) ? ' sameNumberCell' : '') +
+                            ((selectedCell?.row === cell.row || selectedCell?.column === cell.column || selectedCell?.box === cell.box) ? ' highlightedCell' : '') +
+                            (!cell.isStatic ? ' nonStaticCell' : '') +
+                            (cell.isError ? ' errorCell' : '')}`
+                        }
+                        onClick={() => selectCell(cell)}
+                        key={cell.index}
+                        >
+                        {(cell.value === 0 ? 
+                        <div className="noteGrid"> 
+                            <div className="noteGridItem">{cell.getNote(0) && '1'}</div>
+                            <div className="noteGridItem">{cell.getNote(1) && '2'}</div>
+                            <div className="noteGridItem">{cell.getNote(2) && '3'}</div>
+                            <div className="noteGridItem">{cell.getNote(3) && '4'}</div>
+                            <div className="noteGridItem">{cell.getNote(4) && '5'}</div>
+                            <div className="noteGridItem">{cell.getNote(5) && '6'}</div>
+                            <div className="noteGridItem">{cell.getNote(6) && '7'}</div>
+                            <div className="noteGridItem">{cell.getNote(7) && '8'}</div>
+                            <div className="noteGridItem">{cell.getNote(8) && '9'}</div>
+                        </div>
+                        :
+                        cell.value)}
+                    </div>
+                    ))
+                }</div>
+
             </div>
 
             <div className="gameButtons">
