@@ -4,6 +4,8 @@ import { createBoard } from '../scripts/boardGenerator';
 /*
 TODO:
     Improve UI (Colorful mode maybe?)
+    Mobile UI?
+    Win/Loss/Pause screen soon
 */
 
 // Contains data for each individual sudoku cell
