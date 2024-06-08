@@ -3,20 +3,18 @@ import { createBoard } from '../scripts/boardGenerator';
 
 /*
 TODO:
-    Redo way that errors are handled and set
-    Implement colorful UI option
+    Improve UI (Colorful mode maybe?)
 */
 
 // Contains data for each individual sudoku cell
 class cell {
     value: number = -1;
     notes: boolean[] = Array(9).fill(false);
-    index: number | null = null; //0-based, 0-80
+    index: number = -1; //0-based, 0-80
     column: number = -1; //0-based, 0-8
     row: number = -1; //0-based, 0-8
     box: number = -1; //0-based, 0-8
     isStatic: boolean = false;
-    isError: boolean | null = null;
 
     getNote(n: number) {return this.notes[n]}
 
@@ -28,7 +26,6 @@ class cell {
         this.row = Math.floor(index / 9);
         this.box = Math.floor(this.column / 3) + Math.floor(this.row / 3) * 3;
         this.isStatic = this.value !== 0;
-        this.isError = false;
     }
 
     toString(): string {
@@ -85,8 +82,10 @@ export default function SudokuBoard() {
     const [timerPaused, setTimerPaused] = useState<boolean>(false);
     const [undoHistory, setUndoHistory] = useState<cellAction[]>([]);
     const [progress, setProgress] = useState<boolean>(false);
+    const [rowsFrequencies, setRowsFrequencies] = useState<number[][]>(Array.from({ length: 9 }, () => Array(10).fill(0)));
+    const [colsFrequencies, setColsFrequencies] = useState<number[][]>(Array.from({ length: 9 }, () => Array(10).fill(0)));
+    const [boxFrequencies, setBoxFrequencies] = useState<number[][]>(Array.from({ length: 9 }, () => Array(10).fill(0)));
 
-    //REDO
     // Updates the board depending on a given cellAction
     function updateCell(action: cellAction, undo: boolean = false) {
 
@@ -95,19 +94,34 @@ export default function SudokuBoard() {
         setProgress(true);
         const row = action.row;
         const col = action.column;
+        const box = Math.floor(col / 3) + Math.floor(row / 3) * 3;
+        const oldValue = action.oldValue;
         const newValue = action.newValue;
         let newCells = cells.map(subArray => subArray.slice());
         let cellToUpdate = newCells[row][col];
         cellToUpdate.value = newValue;
         cellToUpdate.notes = action.newNotes;
 
-        // Checks for mistakes (not if undoing)
-        cells[row][col].isError = checkError(cellToUpdate);
+        // Updates frequency lists
+        let oldRowsFrequencies = rowsFrequencies.map(i => i.slice());
+        let oldColsFrequencies = colsFrequencies.map(i => i.slice());
+        let oldBoxFrequencies = boxFrequencies.map(i => i.slice());
+        oldRowsFrequencies[row][oldValue] --;
+        oldRowsFrequencies[row][newValue] ++;
+        oldColsFrequencies[col][oldValue] --;
+        oldColsFrequencies[col][newValue] ++;
+        oldBoxFrequencies[box][oldValue] --;
+        oldBoxFrequencies[box][newValue] ++;
+        setRowsFrequencies(oldRowsFrequencies);
+        setColsFrequencies(oldColsFrequencies);
+        setBoxFrequencies(oldBoxFrequencies);
+
+        // Checks for mistakes (not if undoing or erasing)
         if(newValue !== 0 && correctValues[row][col] !== newValue && !undo) {
             setMistakes(mistakes + 1);
         }
         
-        //Re-renders board
+        // Updates specified cell
         setCells(newCells);
     }
 
@@ -169,17 +183,33 @@ export default function SudokuBoard() {
 
     // Generates a new board
     function generateBoard(newDifficulty: number = difficulty) {
+
         let [newUnsolvedBoard, newSolvedBoard] = createBoard(newDifficulty);
         let newCells: cell[][] | null = Array.from({ length: 9 }, () => Array(9).fill(null));
         let newCorrectValues: number[][] | null = Array.from({ length: 9 }, () => Array(9).fill(null));
+        
+        let newRowsFrequencies: number[][] = Array.from({ length: 9 }, () => Array(10).fill(0));
+        let newColsFrequencies: number[][] = Array.from({ length: 9 }, () => Array(10).fill(0));
+        let newBoxFrequencies: number[][] = Array.from({ length: 9 }, () => Array(10).fill(0));
+
         for (let i = 0; i < 9; i++) {
             for (let j = 0; j < 9; j++) {
-                newCells[i][j] = new cell(newUnsolvedBoard[i][j], Array(9).fill(false), i * 9 + j);
+                const cellValue = newUnsolvedBoard[i][j]
+                const newCell: cell = new cell(cellValue, Array(9).fill(false), i * 9 + j);
+
+                newCells[i][j] = newCell;
                 newCorrectValues[i][j] = newSolvedBoard[i][j];
+
+                newRowsFrequencies[i][cellValue] ++;
+                newColsFrequencies[j][cellValue] ++;
+                newBoxFrequencies[newCell.box][cellValue] ++;
             }
         }
         setCells(newCells);
         setCorrectValues(newCorrectValues);
+        setRowsFrequencies(newRowsFrequencies);
+        setColsFrequencies(newColsFrequencies);
+        setBoxFrequencies(newBoxFrequencies);
     }
 
     function resetBoard(newDifficulty: number | null = null) {
@@ -208,13 +238,13 @@ export default function SudokuBoard() {
         }
     }
 
-    // Generates board
+    // Generates board on page load
     useEffect(() => {
         generateBoard();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Creates keyboard listener
+    // Creates keyboard listener for number input
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key >= '0' && event.key <= '9') {
@@ -270,62 +300,6 @@ export default function SudokuBoard() {
         }
     }
 
-    //REDO
-    // Checks for errors in a given cell and updates its related cells' error status
-    function checkError(cell: cell): boolean {
-        if(!cells) {
-            return true;
-        }
-        const val: number = cell.value;
-        const row = cell.row;
-        const col = cell.column;
-        const box = cell.box;
-        const startRow = Math.floor(box / 3) * 3;
-        const startCol = (box % 3) * 3;
-        let currentCell: cell;
-        let foundError: boolean = false;
-        for(let i = 0; i < 9; i++) {
-            //Checks columns
-            if(i !== col) {
-                currentCell = cells[row][i];
-                if(val !== 0 && currentCell.value === val) {
-                    currentCell.isError = true;
-                    foundError = true;
-                }
-                else {
-                    currentCell.isError = false;
-                }
-            }
-            //Checks rows
-            if(i !== row) {
-                currentCell = cells[i][col];
-                if(val !== 0 && currentCell.value === val) {
-                    currentCell.isError = true;
-                    foundError = true;
-                }
-                else {
-                    currentCell.isError = false;
-                }
-            }
-        }
-        //Checks box
-        for(let i = 0; i < 3; i++) {
-            for(let j = 0; j < 3; j++) {
-                if(((startRow + i) !== row) && ((startCol + j) !== col)) {
-                    currentCell = cells[startRow + i][startCol + j];
-                    if(val !== 0 && currentCell.value === val) {
-                        currentCell.isError = true;
-                        foundError = true;
-                    }
-                    else {
-                        currentCell.isError = false;
-                    }
-                }
-            }
-        }
-        return foundError;
-    }
-
     // HTML stuff
     return (
         <div className="gameContainer">
@@ -341,40 +315,56 @@ export default function SudokuBoard() {
                 </div>
                 
                 <div className="grid"> {
-                    cells?.map((row) => row.map((cell) => 
-                        <div
-                        className={`${'gridItem' +
-                            (selectedCell?.index === cell.index ? ' selectedCell' : '') +
-                            ((cell.value !== 0 && selectedCell?.value === cell.value) ? ' sameNumberCell' : '') +
-                            ((selectedCell?.row === cell.row || selectedCell?.column === cell.column || selectedCell?.box === cell.box) ? ' highlightedCell' : '') +
-                            (!cell.isStatic ? ' nonStaticCell' : '') +
-                            (cell.isError ? ' errorCell' : '')}`
-                        }
-                        onClick={() => selectCell(cell)}
-                        key={cell.index}
-                        >
-                        {(cell.value === 0 ? 
-                        <div className="noteGrid"> 
-                            <div className="noteGridItem">{cell.getNote(0) && '1'}</div>
-                            <div className="noteGridItem">{cell.getNote(1) && '2'}</div>
-                            <div className="noteGridItem">{cell.getNote(2) && '3'}</div>
-                            <div className="noteGridItem">{cell.getNote(3) && '4'}</div>
-                            <div className="noteGridItem">{cell.getNote(4) && '5'}</div>
-                            <div className="noteGridItem">{cell.getNote(5) && '6'}</div>
-                            <div className="noteGridItem">{cell.getNote(6) && '7'}</div>
-                            <div className="noteGridItem">{cell.getNote(7) && '8'}</div>
-                            <div className="noteGridItem">{cell.getNote(8) && '9'}</div>
-                        </div>
-                        :
-                        cell.value)}
-                    </div>
-                    ))
+                    cells?.map((row) => row.map((cell) => {
+
+                        const cellValue: number = cell.value
+                        const cellRow: number = cell.row;
+                        const cellCol: number = cell.column;
+                        const cellBox: number = cell.box;
+                        const cellIndex: number = cell.index;
+                        const cellNotes: boolean[] = cell.notes;
+
+                        const isSelected: boolean = selectedCell?.index === cellIndex;
+                        const isSameNumber: boolean = cellValue !== 0 && selectedCell?.value === cellValue;
+                        const isHighlighted: boolean = selectedCell?.row === cellRow || selectedCell?.column === cellCol || selectedCell?.box === cellBox;
+                        const isNotStatic: boolean = !cell.isStatic;
+                        const isSourceError: boolean = (cellValue !== 0) && (cellValue !== correctValues![cellRow][cellCol]);
+                        const isError: boolean = (cellValue !== 0) && ((rowsFrequencies[cellRow][cellValue] > 1) || (colsFrequencies[cellCol][cellValue] > 1) || (boxFrequencies[cellBox][cellValue] > 1));
+                        
+                        const classNames = [
+                            'gridItem',
+                            isSelected && 'selectedCell',
+                            isSameNumber && 'sameNumberCell',
+                            isHighlighted && 'highlightedCell',
+                            isNotStatic && 'nonStaticCell',
+                            (isSourceError || isError) && 'errorCell'
+                        ].filter(Boolean).join(' ');
+
+                        return(
+                            <div className={classNames} onClick={() => selectCell(cell)} key={cellIndex}>
+                                {(cell.value === 0 ? 
+                                    <div className="noteGrid"> 
+                                        <div className="noteGridItem">{cellNotes[0] && '1'}</div>
+                                        <div className="noteGridItem">{cellNotes[1] && '2'}</div>
+                                        <div className="noteGridItem">{cellNotes[2] && '3'}</div>
+                                        <div className="noteGridItem">{cellNotes[3] && '4'}</div>
+                                        <div className="noteGridItem">{cellNotes[4] && '5'}</div>
+                                        <div className="noteGridItem">{cellNotes[5] && '6'}</div>
+                                        <div className="noteGridItem">{cellNotes[6] && '7'}</div>
+                                        <div className="noteGridItem">{cellNotes[7] && '8'}</div>
+                                        <div className="noteGridItem">{cellNotes[8] && '9'}</div>
+                                    </div>
+                                    :
+                                    cellValue
+                                )}
+                            </div>
+                        )
+                    }))
                 }</div>
 
             </div>
 
             <div className="gameButtons">
-
                 <div className="gameInfo">
                     <div className="infoDiv">Mistakes: <span style={{ fontWeight: 'bold', marginLeft: '0.5em' }}>{String(mistakes)}/3</span></div>
                     <div className="infoDiv">
@@ -407,9 +397,7 @@ export default function SudokuBoard() {
                     <button className="numberButton" onClick={() => clickNumber(9)}>9</button>
                     <button className="newGameButton" onClick={() => resetBoard()}>New Game</button>
                 </div>
-
             </div>
-
         </div>
     );
 }
