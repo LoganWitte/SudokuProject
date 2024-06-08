@@ -3,10 +3,8 @@ import { createBoard } from '../scripts/boardGenerator';
 
 /*
 TODO:
-rewrite:
-    updateCell
-    checkError
-    Mapping seems efficient now but errors seem to be with setting mistakes properly. Need to look into how to do this efficiently.
+    Redo way that errors are handled and set
+    Implement colorful UI option
 */
 
 // Contains data for each individual sudoku cell
@@ -170,8 +168,8 @@ export default function SudokuBoard() {
     }
 
     // Generates a new board
-    function generateBoard() {
-        let [newUnsolvedBoard, newSolvedBoard] = createBoard(difficulty);
+    function generateBoard(newDifficulty: number = difficulty) {
+        let [newUnsolvedBoard, newSolvedBoard] = createBoard(newDifficulty);
         let newCells: cell[][] | null = Array.from({ length: 9 }, () => Array(9).fill(null));
         let newCorrectValues: number[][] | null = Array.from({ length: 9 }, () => Array(9).fill(null));
         for (let i = 0; i < 9; i++) {
@@ -196,7 +194,7 @@ export default function SudokuBoard() {
             if(newDifficulty) {
                 setDifficulty(newDifficulty);
             }
-            generateBoard();
+            generateBoard(newDifficulty ? newDifficulty : difficulty);
             setSelectedCell(null);
             setNoteMode(false);
             setTimerString("00:00");

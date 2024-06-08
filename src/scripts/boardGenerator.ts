@@ -1,17 +1,25 @@
-//Checks if row and column already contain n
-function checkValidity(board: number[][], row: number, column: number, n: number) {
-    for(let i = 0; i < 9; i++) {
+import { countSudokuSolutions } from './sudokuSolverAlgX';
 
-        //Checks Row
-        if(board[row][i] === n) {
+// Checks if row, column, and box already contain n
+function checkValidity(board: number[][], row: number, column: number, n: number): boolean {
+    
+    const startRow = Math.floor(row / 3) * 3;
+    const startCol = Math.floor(column / 3) * 3;
+
+    for (let i = 0; i < 9; i++) {
+        // Check row and column
+        if (board[row][i] === n || board[i][column] === n) {
             return false;
         }
 
-        //Checks Column
-        if(board[i][column] === n) {
+        // Check the 3x3 box
+        const boxRow = startRow + Math.floor(i / 3);
+        const boxCol = startCol + (i % 3);
+        if (board[boxRow][boxCol] === n) {
             return false;
-        } 
+        }
     }
+
     return true;
 }
 
@@ -58,30 +66,60 @@ function fillSquare(board: number[][], desiredNumber: number, squarePosition: nu
     return false;
 }
 
-//Removes a certain number of squares while preserving uniqueness of solution
-function removeSquares(board: number[][], removalCount: number): number[][] {
-
-    let row: number;
-    let col: number;
-    let newBoard = board.map(i => i.slice());
-
-    for(let i = 0; i < removalCount; i++) {
-        do {
-            row = Math.floor(Math.random() * 9);
-            col = Math.floor(Math.random() * 9);
-        }
-        while(board[row][col] === 0);
-        
-        newBoard[row][col] = 0;
+//Removes a certain number of squares
+function removeSquares(board: number[][], removableSquares: number[], removalCount: number): number[][] {
+    
+    //Returns board whenever all squares are removed
+    if(removalCount === 0 || removableSquares.length === 0) {
+        return board;
     }
     
-    return newBoard;
+    //Generates random index to remove
+    const index: number = removableSquares.splice(Math.floor(Math.random() * removableSquares.length), 1)[0];
+    const row: number = Math.floor(index / 9);
+    const col: number = index % 9;
+
+    //Removes index
+    const oldValue = board[row][col];
+    board[row][col] = 0;
+    
+    //If unique solution continues, otherwise reverts to previous state
+    if(countSudokuSolutions(board) === 1) {
+        return removeSquares(board, removableSquares, removalCount - 1);
+    }
+    else {
+        board[row][col] = oldValue;
+        return removeSquares(board, removableSquares, removalCount);
+    }
 }
 
 //Returns a valid sudoku board and its single unique solution
 export function createBoard(numbersToRemove: number): [number[][], number[][]] {
+
+    //Generates valid solved board
     let solvedBoard: number[][] = Array.from({ length: 9 }, () => Array(9).fill(0));
     fillSquare(solvedBoard, 1, 0);
-    let unsolvedBoard: number[][] = removeSquares(solvedBoard, numbersToRemove);
+
+    /*
+    //Debug
+    console.log(`numbersToRemove: ${numbersToRemove}`); 
+    const currentTime = new Date();
+    */    
+
+    //Generates unsolved board with valid solution after removing 'numbersToRemove' squares
+    let unsolvedBoard: number[][] = removeSquares(solvedBoard.map(i => [...i]), Array.from({ length: 81 }, (_, i) => i), numbersToRemove);
+    
+    /*
+    //Debug
+    console.log(`Time taken: ${new Date().getTime() - currentTime.getTime()}ms`);
+    let text: string = "";
+    for(let i = 0; i < 9; i++) {
+        for(let j = 0; j < 9; j++) {
+            text += unsolvedBoard[i][j].toString();
+        }
+    }
+    console.log(text + "\n---------------------------------------------------------------------------------");
+    */
+
     return [unsolvedBoard, solvedBoard];
 }
