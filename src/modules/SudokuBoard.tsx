@@ -4,7 +4,7 @@ import { createBoard } from '../scripts/boardGenerator';
 /*
 TODO:
     Mobile UI?
-    Win/Loss/Pause screen soon
+    Win/Loss screen soon
 */
 
 // Contains data for each individual sudoku cell
@@ -69,9 +69,6 @@ const missingCells = {
 //Gives rgb values for given cell number (0-based)
 const rgbValues = ["255, 0, 64", "0, 255, 0", "0, 0, 255", "255, 255, 0", "0, 255, 255", "255, 0, 255", "255, 165, 0", "128, 0, 128", "165, 42, 42"];
 
-// Converts cell numbers to color of cell in colorful mode
-const numToColors: string[] = ["red", "green", "blue", "yellow", "cyan", "magenta", "orange", "purple", "brown"];
-
 // This module renders the whole game area of the sudoku website
 export default function SudokuBoard() {
 
@@ -135,6 +132,9 @@ export default function SudokuBoard() {
 
     // Undoes the most recent action in undoHistory[]
     function undo() {
+        if(timerPaused) {
+            return;
+        }
         let action = undoHistory[undoHistory.length - 1];
         setUndoHistory(undoHistory.slice(0, -1));
         //if undo array is empty, return
@@ -149,7 +149,7 @@ export default function SudokuBoard() {
     // Rewrite later - code looks super confusing. Could be better by having a seperate section for when user clicks '0'
     function clickNumber(option: number) {
         //If no cell is selected or selected cell is static then changes nothing
-        if (!selectedCell || selectedCell.isStatic) {
+        if (!selectedCell || selectedCell.isStatic || timerPaused) {
             return;
         }
         let row = selectedCell.row;
@@ -220,6 +220,7 @@ export default function SudokuBoard() {
         setBoxFrequencies(newBoxFrequencies);
     }
 
+    // Resets and generates new board
     function resetBoard(newDifficulty: number | null = null) {
         let continueResetting;
         if(progress) {
@@ -244,6 +245,21 @@ export default function SudokuBoard() {
             setUndoHistory([]);
             setProgress(false);
         }
+    }
+
+    // Checks if user has won
+    function checkWin(): boolean {
+        if(!cells || !correctValues) {
+            return false;
+        }
+        for(let i = 0; i < 9; i++) {
+            for(let j = 0; j < 9; j++) {
+                if(cells[i][j].value !== correctValues[i][j]) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     // Generates board on page load
@@ -311,7 +327,6 @@ export default function SudokuBoard() {
     // HTML stuff
     return (
         <div className="gameContainer">
-
             <div>
                 <div className="difficultySelector">
                     <div style={{ paddingTop: '0.5em', fontWeight: 'bold' }}>Difficulty:</div>
@@ -322,72 +337,90 @@ export default function SudokuBoard() {
                     <div className={`difficultyOption ${difficulty === missingCells.extreme && 'selected'}`} onClick={() => resetBoard(missingCells.extreme)}>Extreme</div>
                 </div>
                 
-                <div className="grid"> {
-                    cells?.map((row) => row.map((cell) => {
+                {!timerPaused ? 
+                    <>
+                        <div className="grid"> {
+                            cells?.map((row) => row.map((cell) => {
 
-                        const cellValue: number = cell.value
-                        const cellNotes: boolean[] = cell.notes;
-                        const isNotStatic: boolean = !cell.isStatic;
-                        const cellRow: number = cell.row;
-                        const cellCol: number = cell.column;
-                        const cellBox: number = cell.box;
-                        const cellIndex: number = cell.index;
-                        const isSelected: boolean = selectedCell?.index === cellIndex;
-                        const isSameNumber: boolean = !isSelected && (cellValue !== 0 && selectedCell?.value === cellValue);
-                        const isHighlighted: boolean = (!isSelected && !isSameNumber) && (selectedCell?.row === cellRow || selectedCell?.column === cellCol || selectedCell?.box === cellBox);
-                        const isSourceError: boolean = (cellValue !== 0) && (cellValue !== correctValues![cellRow][cellCol]);
-                        const isError: boolean = (cellValue !== 0) && ((rowsFrequencies[cellRow][cellValue] > 1) || (colsFrequencies[cellCol][cellValue] > 1) || (boxFrequencies[cellBox][cellValue] > 1));
+                                const cellValue: number = cell.value
+                                const cellNotes: boolean[] = cell.notes;
+                                const isNotStatic: boolean = !cell.isStatic;
+                                const cellRow: number = cell.row;
+                                const cellCol: number = cell.column;
+                                const cellBox: number = cell.box;
+                                const cellIndex: number = cell.index;
+                                const isSelected: boolean = selectedCell?.index === cellIndex;
+                                const isSameNumber: boolean = !isSelected && (cellValue !== 0 && selectedCell?.value === cellValue);
+                                const isHighlighted: boolean = (!isSelected && !isSameNumber) && (selectedCell?.row === cellRow || selectedCell?.column === cellCol || selectedCell?.box === cellBox);
+                                const isSourceError: boolean = (cellValue !== 0) && (cellValue !== correctValues![cellRow][cellCol]);
+                                const isError: boolean = (cellValue !== 0) && ((rowsFrequencies[cellRow][cellValue] > 1) || (colsFrequencies[cellCol][cellValue] > 1) || (boxFrequencies[cellBox][cellValue] > 1));
 
-                        const classNames = [
-                            'gridItem',
-                            isSelected && 'selectedCell',
-                            isSameNumber && 'sameNumberCell',
-                            (!colorMode && isHighlighted) && 'highlightedCell',
-                            isNotStatic && 'nonStaticCell',
-                            (!colorMode && (isSourceError || isError)) && 'errorCell',
-                        ].filter(Boolean).join(' ');
+                                const classNames = [
+                                    'gridItem',
+                                    isSelected && 'selectedCell',
+                                    isSameNumber && 'sameNumberCell',
+                                    (!colorMode && isHighlighted) && 'highlightedCell',
+                                    isNotStatic && 'nonStaticCell',
+                                    (!colorMode && (isSourceError || isError)) && 'errorCell',
+                                ].filter(Boolean).join(' ');
 
-                        let backgroundColor: string;
-                        let backgroundOpacity: string;
-                        if(cellValue !== 0 && colorMode) {
-                            backgroundColor = rgbValues[cellValue-1];
-                            backgroundOpacity = isSelected ? "0.65" : isSourceError ? "0.55" : isSameNumber ? "0.5" : "0.35";
-                        }
-                        else {
-                            backgroundColor = isSelected ? "150, 150, 150" : isSameNumber ? "175, 175, 175" : isHighlighted ? "200, 200, 200" : "255, 255, 255";
-                            backgroundOpacity = "1";
-                        }
+                                let backgroundColor: string;
+                                let backgroundOpacity: string;
+                                if(cellValue !== 0 && colorMode) {
+                                    backgroundColor = rgbValues[cellValue-1];
+                                    backgroundOpacity = isSelected ? "0.65" : isSourceError ? "0.55" : isSameNumber ? "0.5" : "0.35";
+                                }
+                                else {
+                                    backgroundColor = isSelected ? "150, 150, 150" : isSameNumber ? "175, 175, 175" : isHighlighted ? "200, 200, 200" : "255, 255, 255";
+                                    backgroundOpacity = "1";
+                                }
 
-                        return(
-                            <div 
-                                className={classNames} 
-                                onClick={() => selectCell(cell)}
-                                style={{
-                                    background: `rgba(${backgroundColor}, ${backgroundOpacity})`, 
-                                    fontWeight: `${(isSelected || isSourceError) ? "350" : "300"}`,
-                                    ...(colorMode && { color: isError ? "red" : "black" })
-                                }}
-                            >
-                                {(cell.value === 0 ? 
-                                    <div className="noteGrid"> 
-                                        {cellNotes[0] ? <div className={"noteGridItem"} style={{background: colorMode ? `rgba(${rgbValues[0]}, 0.35)` : "inherit"}}>{'1'}</div> : <div className="noteGridItem"></div>}
-                                        {cellNotes[1] ? <div className={"noteGridItem"} style={{background: colorMode ? `rgba(${rgbValues[1]}, 0.35)` : "inherit"}}>{'2'}</div> : <div className="noteGridItem"></div>}
-                                        {cellNotes[2] ? <div className={"noteGridItem"} style={{background: colorMode ? `rgba(${rgbValues[2]}, 0.35)` : "inherit"}}>{'3'}</div> : <div className="noteGridItem"></div>}
-                                        {cellNotes[3] ? <div className={"noteGridItem"} style={{background: colorMode ? `rgba(${rgbValues[3]}, 0.35)` : "inherit"}}>{'4'}</div> : <div className="noteGridItem"></div>}
-                                        {cellNotes[4] ? <div className={"noteGridItem"} style={{background: colorMode ? `rgba(${rgbValues[4]}, 0.35)` : "inherit"}}>{'5'}</div> : <div className="noteGridItem"></div>}
-                                        {cellNotes[5] ? <div className={"noteGridItem"} style={{background: colorMode ? `rgba(${rgbValues[5]}, 0.35)` : "inherit"}}>{'6'}</div> : <div className="noteGridItem"></div>}
-                                        {cellNotes[6] ? <div className={"noteGridItem"} style={{background: colorMode ? `rgba(${rgbValues[6]}, 0.35)` : "inherit"}}>{'7'}</div> : <div className="noteGridItem"></div>}
-                                        {cellNotes[7] ? <div className={"noteGridItem"} style={{background: colorMode ? `rgba(${rgbValues[7]}, 0.35)` : "inherit"}}>{'8'}</div> : <div className="noteGridItem"></div>}
-                                        {cellNotes[8] ? <div className={"noteGridItem"} style={{background: colorMode ? `rgba(${rgbValues[8]}, 0.35)` : "inherit"}}>{'9'}</div> : <div className="noteGridItem"></div>}
+                                return(
+                                    <div 
+                                        className={classNames} 
+                                        onClick={() => selectCell(cell)}
+                                        style={{
+                                            background: `rgba(${backgroundColor}, ${backgroundOpacity})`, 
+                                            fontWeight: `${(isSelected || isSourceError) ? "350" : "300"}`,
+                                            ...(colorMode && { color: isError ? "red" : "black" })
+                                        }}
+                                    >
+                                        {(cell.value === 0 ? 
+                                            <div className="noteGrid"> 
+                                                {cellNotes[0] ? <div className={"noteGridItem"} style={{background: colorMode ? `rgba(${rgbValues[0]}, 0.35)` : "inherit"}}>{'1'}</div> : <div className="noteGridItem"></div>}
+                                                {cellNotes[1] ? <div className={"noteGridItem"} style={{background: colorMode ? `rgba(${rgbValues[1]}, 0.35)` : "inherit"}}>{'2'}</div> : <div className="noteGridItem"></div>}
+                                                {cellNotes[2] ? <div className={"noteGridItem"} style={{background: colorMode ? `rgba(${rgbValues[2]}, 0.35)` : "inherit"}}>{'3'}</div> : <div className="noteGridItem"></div>}
+                                                {cellNotes[3] ? <div className={"noteGridItem"} style={{background: colorMode ? `rgba(${rgbValues[3]}, 0.35)` : "inherit"}}>{'4'}</div> : <div className="noteGridItem"></div>}
+                                                {cellNotes[4] ? <div className={"noteGridItem"} style={{background: colorMode ? `rgba(${rgbValues[4]}, 0.35)` : "inherit"}}>{'5'}</div> : <div className="noteGridItem"></div>}
+                                                {cellNotes[5] ? <div className={"noteGridItem"} style={{background: colorMode ? `rgba(${rgbValues[5]}, 0.35)` : "inherit"}}>{'6'}</div> : <div className="noteGridItem"></div>}
+                                                {cellNotes[6] ? <div className={"noteGridItem"} style={{background: colorMode ? `rgba(${rgbValues[6]}, 0.35)` : "inherit"}}>{'7'}</div> : <div className="noteGridItem"></div>}
+                                                {cellNotes[7] ? <div className={"noteGridItem"} style={{background: colorMode ? `rgba(${rgbValues[7]}, 0.35)` : "inherit"}}>{'8'}</div> : <div className="noteGridItem"></div>}
+                                                {cellNotes[8] ? <div className={"noteGridItem"} style={{background: colorMode ? `rgba(${rgbValues[8]}, 0.35)` : "inherit"}}>{'9'}</div> : <div className="noteGridItem"></div>}
+                                            </div>
+                                            :
+                                            <div>{cellValue}</div>
+                                        )}
                                     </div>
-                                    :
-                                    <div>{cellValue}</div>
-                                )}
-                            </div>
-                        )
-                    }))
-                }</div>
-
+                                )
+                            }))
+                        }</div>
+                    </>
+                    :
+                    <>
+                        <div className="grid unpauseBoard" onClick={() => setTimerPaused(false)}>
+                            {Array.from({ length: 81 }).map((_, i) => {
+                                if(i === 40) {
+                                    return(<div className="gridItem" key={i}>
+                                        <i className="pauseIcon fa fa-play" style={{width: '1em', height: '1em'}} />
+                                    </div>)
+                                }
+                                else {
+                                    return(<div className="gridItem" key={i} />)
+                                }
+                            })}
+                        </div>
+                    </>
+                }
             </div>
 
             <div className="gameButtons">

@@ -328,3 +328,7 @@ input:checked + .slider {
 input:checked + .slider:before {
     transform: translateX(1.625em);
 }
+
+.unpauseBoard:hover {
+    cursor: pointer;
+}
